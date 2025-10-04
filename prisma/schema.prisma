@@ -1,0 +1,284 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core User Management
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  memberships  Membership[]
+  expenses     Expense[]
+  approvals    Approval[]
+  auditLogs    AuditLog[]
+  accounts     Account[]
+  sessions     Session[]
+  userProjects UserProject[]
+
+  @@map("users")
+  @@index([email])
+}
+
+// Multi-tenant Company Management
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  baseCurrency String   @default("USD")
+  createdAt    DateTime @default(now())
+
+  // Relations
+  memberships              Membership[]
+  projects                 Project[]
+  approvalPolicies         ApprovalPolicy[]
+  exchangeRateSnapshots    ExchangeRateSnapshot[]
+  auditLogs                AuditLog[]
+
+  @@map("companies")
+  @@index([name])
+}
+
+// User-Company relationship with roles
+model Membership {
+  id        String         @id @default(cuid())
+  userId    String
+  companyId String
+  role      MembershipRole @default(EMPLOYEE)
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@map("memberships")
+  @@index([companyId])
+  @@index([userId])
+}
+
+// Project Management
+model Project {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+  userProjects UserProject[]
+
+  @@map("projects")
+  @@index([companyId])
+  @@index([active])
+}
+
+// User-Project assignments
+model UserProject {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("user_projects")
+  @@index([userId])
+  @@index([projectId])
+}
+
+// Expense Management
+model Expense {
+  id                          String        @id @default(cuid())
+  projectId                   String
+  employeeId                  String
+  amountMinor                 BigInt
+  currency                    String        @default("USD")
+  description                 String
+  category                    String
+  paidBy                      String
+  expenseDate                 DateTime
+  status                      ExpenseStatus @default(PENDING)
+  createdAt                   DateTime      @default(now())
+
+  // Relations
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee     User          @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  receiptFiles ReceiptFile[]
+  approvals    Approval[]
+
+  @@map("expenses")
+  @@index([projectId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([expenseDate])
+  @@index([category])
+}
+
+// Receipt File Management
+model ReceiptFile {
+  id        String @id @default(cuid())
+  expenseId String
+  url       String
+  mime      String
+  size      BigInt
+
+  // Relations
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@map("receipt_files")
+  @@index([expenseId])
+}
+
+// Approval Workflow
+model Approval {
+  id         String           @id @default(cuid())
+  expenseId  String
+  managerId  String
+  decision   ApprovalDecision
+  note       String?
+  decidedAt  DateTime         @default(now())
+
+  // Relations
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  manager User    @relation(fields: [managerId], references: [id], onDelete: Restrict)
+
+  @@map("approvals")
+  @@index([expenseId])
+  @@index([managerId])
+}
+
+// Company Approval Policies
+model ApprovalPolicy {
+  id                           String            @id @default(cuid())
+  companyId                    String
+  type                         ApprovalType
+  thresholdPercent             Int?
+  maxPerEmployeeMinor          BigInt
+  largeExpenseThresholdMinor   BigInt
+  requireCeoForLarge           Boolean           @default(false)
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("approval_policies")
+  @@index([companyId])
+}
+
+// Exchange Rate Management
+model ExchangeRateSnapshot {
+  id           String   @id @default(cuid())
+  companyId    String
+  baseCurrency String
+  rates        Json
+  takenAt      DateTime @default(now())
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("exchange_rate_snapshots")
+  @@index([companyId])
+  @@index([takenAt])
+}
+
+// Audit Trail
+model AuditLog {
+  id           String   @id @default(cuid())
+  companyId    String
+  actorUserId  String
+  action       String
+  entity       String
+  entityId     String
+  meta         Json?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actor   User    @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@map("audit_logs")
+  @@index([companyId])
+  @@index([actorUserId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// NextAuth Models (preserved for authentication)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Enums
+enum MembershipRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ESCALATED
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+}
+
+enum ApprovalType {
+  MAJORITY
+  PERCENTAGE
+}
