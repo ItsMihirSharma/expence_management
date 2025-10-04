@@ -6,7 +6,7 @@ export default async function ManagerPage() {
   const session = await requireAuth()
   
   // Check if user has manager or admin role
-  if (!hasRole(["MANAGER", "ADMIN"])) {
+  if (!hasRole(session, ["MANAGER", "ADMIN"])) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

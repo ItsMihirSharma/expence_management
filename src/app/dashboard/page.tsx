@@ -140,9 +140,6 @@ async function Dashboard() {
               <Button variant="outline" asChild>
                 <Link href="/projects">Projects</Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link href="/employee">Expenses</Link>
-              </Button>
               {canViewAllExpenses && (
                 <Button variant="outline" asChild>
                   <Link href="/reports">Reports</Link>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import React, { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Edit2, Mail, Key, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -56,7 +56,7 @@ export function AdminUsersTab({ tenant }: AdminUsersTabProps) {
   const router = useRouter()
 
   // Load users and company on mount
-  useState(() => {
+  React.useEffect(() => {
     const loadData = async () => {
       try {
         // Load company data
@@ -105,7 +105,7 @@ export function AdminUsersTab({ tenant }: AdminUsersTabProps) {
       }
     }
     loadData()
-  })
+  }, [])
 
   // Generate a random password
   const generatePassword = () => {

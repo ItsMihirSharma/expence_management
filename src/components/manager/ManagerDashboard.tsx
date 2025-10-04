@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import React, { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { CheckCircle, XCircle, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -65,7 +65,7 @@ export function ManagerDashboard({ tenant }: ManagerDashboardProps) {
   const router = useRouter()
 
   // Load expenses on mount
-  useState(() => {
+  React.useEffect(() => {
     const loadExpenses = async () => {
       try {
         const data = await tenant.raw.expense.findMany({
@@ -95,7 +95,7 @@ export function ManagerDashboard({ tenant }: ManagerDashboardProps) {
       }
     }
     loadExpenses()
-  })
+  }, [filterStatus])
 
   const handleApproval = async () => {
     if (!selectedExpense) return
